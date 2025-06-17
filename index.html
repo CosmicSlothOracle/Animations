@@ -3,30 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GIF Gallery</title>
+    <meta name="description" content="Discover and share amazing animated GIFs in our Pinterest-style gallery. Download and view high-quality GIF animations.">
+    <meta name="keywords" content="GIF, animations, gallery, Pinterest, download, share">
+
+    <!-- Open Graph meta tags -->
+    <meta property="og:title" content="GIF Gallery - Pinterest Style">
+    <meta property="og:description" content="Discover amazing animated GIFs in our flashy Pinterest-style gallery">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="">
+
+    <!-- Twitter Card meta tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="GIF Gallery - Pinterest Style">
+    <meta name="twitter:description" content="Discover amazing animated GIFs">
+
+    <title>GIF Gallery - Pinterest Style</title>
+
+    <!-- Preload critical resources -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="script.js" as="script">
+
     <link rel="stylesheet" href="style.css">
+
+    <!-- Add some extra CSS for enhanced animations -->
+    <style>
+        /* Additional flashy animations */
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .gif-card:hover {
+            animation: pulse 0.6s ease-in-out;
+        }
+
+        /* Sparkle effect */
+        .sparkle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: white;
+            border-radius: 50%;
+            animation: sparkle 1.5s ease-in-out infinite;
+        }
+
+        @keyframes sparkle {
+            0%, 100% {
+                opacity: 0;
+                transform: scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
 </head>
 <body>
     <header class="header">
-        <h1 class="header__title">GIF Gallery</h1>
+        <h1 class="header__title">✨ GIF GALLERY ✨</h1>
     </header>
 
     <main class="main">
-        <!-- Das Grid wird dynamisch per JavaScript befüllt -->
-        <div class="gif-grid" id="gif-grid"></div>
+        <!-- Pinterest-style masonry grid -->
+        <div class="gif-grid" id="gif-grid">
+            <div class="loading">Loading amazing GIFs...</div>
+        </div>
+
+        <!-- Mobile gallery fallback (hidden by default) -->
         <div class="mobile-gallery" id="mobile-gallery"></div>
+
         <noscript>
-            <div style="padding:2rem;text-align:center;color:#c00;">Bitte aktivieren Sie JavaScript, um die GIF-Galerie zu sehen.</div>
+            <div style="padding:2rem;text-align:center;color:#ff6b6b;background:rgba(255,255,255,0.1);border-radius:12px;margin:2rem;">
+                <h2>⚠️ JavaScript Required</h2>
+                <p>Please enable JavaScript to experience our amazing GIF gallery!</p>
+            </div>
         </noscript>
     </main>
 
-    <!-- Fullscreen Modal for Mobile -->
+    <!-- Enhanced Fullscreen Modal -->
     <div class="modal" id="fullscreen-modal">
         <div class="modal__overlay">
-            <button class="modal__close">&times;</button>
-            <img class="modal__image" src="" alt="">
+            <button class="modal__close" aria-label="Close modal">&times;</button>
+            <img class="modal__image" src="" alt="" loading="lazy">
+            <div class="modal__navigation" style="
+                position: absolute;
+                bottom: -60px;
+                left: 50%;
+                transform: translateX(-50%);
+                display: flex;
+                gap: 1rem;
+                align-items: center;
+            ">
+                <button class="action-btn" onclick="window.gifGallery?.navigateModal(-1)" aria-label="Previous GIF">
+                    ← Previous
+                </button>
+                <span style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
+                    Press ← → keys to navigate
+                </span>
+                <button class="action-btn" onclick="window.gifGallery?.navigateModal(1)" aria-label="Next GIF">
+                    Next →
+                </button>
+            </div>
         </div>
     </div>
+
+    <!-- Service Worker Registration for PWA capabilities -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Optional: Add service worker for offline capabilities
+                console.log('Service Worker support detected');
+            });
+        }
+
+        // Add sparkle effects on hover
+        document.addEventListener('DOMContentLoaded', () => {
+            const addSparkles = (element) => {
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        const sparkle = document.createElement('div');
+                        sparkle.className = 'sparkle';
+                        sparkle.style.left = Math.random() * 100 + '%';
+                        sparkle.style.top = Math.random() * 100 + '%';
+                        sparkle.style.animationDelay = Math.random() * 0.5 + 's';
+                        element.appendChild(sparkle);
+
+                        setTimeout(() => {
+                            sparkle.remove();
+                        }, 1500);
+                    }, i * 100);
+                }
+            };
+
+            // Add sparkles to cards on hover
+            document.addEventListener('mouseover', (e) => {
+                if (e.target.closest('.gif-card')) {
+                    addSparkles(e.target.closest('.gif-card'));
+                }
+            });
+        });
+    </script>
 
     <script src="script.js"></script>
 </body>

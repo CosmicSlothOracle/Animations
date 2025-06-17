@@ -1,248 +1,277 @@
-// ===== GIF GALLERY FUNCTIONALITY =====
+// ===== PINTEREST-STYLE GIF GALLERY =====
 
-class GifGallery {
+class PinterestGifGallery {
     constructor() {
-        this.isMobile = window.innerWidth <= 768;
-        this.currentMobileIndex = 0;
-        this.mobileGifs = [];
-        this.gifList = [];
-        this.gridCols = 3; // Desktop: 3 Spalten
-        this.gridRows = 3; // Desktop: 3 Reihen
-        this.touchStartX = 0;
-        this.touchEndX = 0;
+        this.gifs = [];
+        this.currentModalIndex = 0;
         this.init();
     }
 
     async init() {
-        await this.loadGifList();
+        await this.loadGifs();
         this.renderGallery();
         this.setupModal();
         this.setupEventListeners();
-        this.handleResize();
     }
 
-    async loadGifList() {
+    async loadGifs() {
         try {
-            const res = await fetch('gifs.json');
-            this.gifList = await res.json();
-        } catch (e) {
-            this.gifList = [];
+            const response = await fetch('gifs.json');
+            this.gifs = await response.json();
+
+            // Add random sizes if not specified
+            this.gifs = this.gifs.map(gif => ({
+                ...gif,
+                size: gif.size || this.getRandomSize()
+            }));
+        } catch (error) {
+            console.error('Error loading GIFs:', error);
+            this.gifs = [];
         }
+    }
+
+    getRandomSize() {
+        const sizes = ['small', 'medium', 'large', 'extra-large'];
+        const weights = [0.3, 0.4, 0.2, 0.1]; // Higher probability for medium sizes
+
+        const random = Math.random();
+        let sum = 0;
+
+        for (let i = 0; i < weights.length; i++) {
+            sum += weights[i];
+            if (random <= sum) {
+                return sizes[i];
+            }
+        }
+
+        return 'medium';
     }
 
     renderGallery() {
-        if (this.isMobile) {
-            this.renderMobileGallery();
-        } else {
-            this.renderDesktopGrid();
-        }
-    }
-
-    // ===== DESKTOP GRID FUNCTIONALITY =====
-    renderDesktopGrid() {
         const grid = document.getElementById('gif-grid');
+
+        if (!this.gifs.length) {
+            grid.innerHTML = '<div class="loading">No GIFs found...</div>';
+            return;
+        }
+
         grid.innerHTML = '';
-        if (!this.gifList.length) {
-            grid.innerHTML = '<div style="padding:2rem;text-align:center;color:#c00;">Keine GIFs gefunden.</div>';
-            return;
+
+        this.gifs.forEach((gif, index) => {
+            const card = this.createGifCard(gif, index);
+            grid.appendChild(card);
+        });
+    }
+
+    createGifCard(gif, index) {
+        const card = document.createElement('div');
+        card.className = `gif-card size-${gif.size}`;
+        card.style.animationDelay = `${index * 0.1}s`;
+
+        const img = document.createElement('img');
+        img.className = 'gif-image';
+        img.src = gif.url;
+        img.alt = gif.title || 'GIF Animation';
+        img.loading = 'lazy';
+
+        const overlay = document.createElement('div');
+        overlay.className = 'gif-overlay';
+
+        const title = document.createElement('h3');
+        title.className = 'gif-title';
+        title.textContent = gif.title || 'Animated GIF';
+
+        const actions = document.createElement('div');
+        actions.className = 'gif-actions';
+
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'action-btn';
+        viewBtn.textContent = '👁️ View';
+        viewBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.openModal(index);
+        };
+
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'action-btn';
+        downloadBtn.textContent = '💾 Download';
+        downloadBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.downloadGif(gif.url, gif.title || 'gif');
+        };
+
+        const shareBtn = document.createElement('button');
+        shareBtn.className = 'action-btn';
+        shareBtn.textContent = '🔗 Share';
+        shareBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.shareGif(gif.url);
+        };
+
+        actions.appendChild(viewBtn);
+        actions.appendChild(downloadBtn);
+        actions.appendChild(shareBtn);
+
+        overlay.appendChild(title);
+        overlay.appendChild(actions);
+
+        card.appendChild(img);
+        card.appendChild(overlay);
+
+        // Add click handler for opening modal
+        card.addEventListener('click', () => {
+            this.openModal(index);
+        });
+
+        // Add loading error handler
+        img.addEventListener('error', () => {
+            card.innerHTML = `
+                <div class="loading" style="color: #ff6b6b;">
+                    ❌ Failed to load GIF
+                </div>
+            `;
+        });
+
+        // Add loading effect
+        img.addEventListener('load', () => {
+            card.classList.add('loaded');
+        });
+
+        return card;
+    }
+
+    async downloadGif(url, filename) {
+        try {
+            // Show loading indicator
+            const originalText = event.target.textContent;
+            event.target.textContent = '⏳ Downloading...';
+
+            const response = await fetch(url);
+            const blob = await response.blob();
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${filename}.gif`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            URL.revokeObjectURL(link.href);
+
+            // Restore button text
+            event.target.textContent = originalText;
+
+            // Show success feedback
+            this.showNotification('✅ Download started!', 'success');
+        } catch (error) {
+            console.error('Download failed:', error);
+            event.target.textContent = '❌ Failed';
+            setTimeout(() => {
+                event.target.textContent = '💾 Download';
+            }, 2000);
+
+            this.showNotification('❌ Download failed', 'error');
         }
-        const cells = this.gridCols * this.gridRows;
-        // GIFs gleichmäßig auf Zellen verteilen
-        const gifsPerCell = Math.ceil(this.gifList.length / cells);
-        let gifIndex = 0;
-        for (let i = 0; i < cells; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'gif-cell';
-            cell.dataset.cell = i;
-            const container = document.createElement('div');
-            container.className = 'gif-container';
-            // GIFs für diese Zelle
-            const gifs = [];
-            for (let j = 0; j < gifsPerCell && gifIndex < this.gifList.length; j++, gifIndex++) {
-                const gif = this.gifList[gifIndex];
-                const img = document.createElement('img');
-                img.className = 'gif-image' + (j === 0 ? ' active' : '');
-                img.src = `assets/gifs/${gif}`;
-                img.alt = gif;
-                img.loading = 'lazy';
-                container.appendChild(img);
-                gifs.push(img);
+    }
+
+    async shareGif(url) {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Check out this GIF!',
+                    url: url
+                });
+                this.showNotification('✅ Shared successfully!', 'success');
+            } catch (error) {
+                this.copyToClipboard(url);
             }
-            cell.appendChild(container);
-            // Controls nur wenn mehrere GIFs
-            if (gifs.length > 1) {
-                const controls = document.createElement('div');
-                controls.className = 'gif-controls';
-                const prevBtn = document.createElement('button');
-                prevBtn.className = 'control-btn control-btn--prev';
-                prevBtn.textContent = '‹';
-                const nextBtn = document.createElement('button');
-                nextBtn.className = 'control-btn control-btn--next';
-                nextBtn.textContent = '›';
-                const indicators = document.createElement('div');
-                indicators.className = 'control-indicators';
-                gifs.forEach((_, idx) => {
-                    const indicator = document.createElement('span');
-                    indicator.className = 'indicator' + (idx === 0 ? ' active' : '');
-                    indicator.dataset.index = idx;
-                    indicators.appendChild(indicator);
-                });
-                controls.appendChild(prevBtn);
-                controls.appendChild(indicators);
-                controls.appendChild(nextBtn);
-                cell.appendChild(controls);
-                // Navigation-Logik
-                let currentIndex = 0;
-                prevBtn.addEventListener('click', () => {
-                    currentIndex = currentIndex > 0 ? currentIndex - 1 : gifs.length - 1;
-                    this.updateDesktopImage(gifs, indicators.children, currentIndex);
-                });
-                nextBtn.addEventListener('click', () => {
-                    currentIndex = currentIndex < gifs.length - 1 ? currentIndex + 1 : 0;
-                    this.updateDesktopImage(gifs, indicators.children, currentIndex);
-                });
-                Array.from(indicators.children).forEach((indicator, idx) => {
-                    indicator.addEventListener('click', () => {
-                        currentIndex = idx;
-                        this.updateDesktopImage(gifs, indicators.children, currentIndex);
-                    });
-                });
-                setInterval(() => {
-                    if (!cell.matches(':hover')) {
-                        currentIndex = currentIndex < gifs.length - 1 ? currentIndex + 1 : 0;
-                        this.updateDesktopImage(gifs, indicators.children, currentIndex);
-                    }
-                }, 5000);
-            }
-            grid.appendChild(cell);
-        }
-    }
-
-    updateDesktopImage(images, indicators, activeIndex) {
-        Array.from(images).forEach((img, idx) => {
-            img.classList.toggle('active', idx === activeIndex);
-        });
-        Array.from(indicators).forEach((indicator, idx) => {
-            indicator.classList.toggle('active', idx === activeIndex);
-        });
-    }
-
-    // ===== MOBILE GALLERY FUNCTIONALITY =====
-    renderMobileGallery() {
-        const mobileGallery = document.getElementById('mobile-gallery');
-        mobileGallery.innerHTML = '';
-        if (!this.gifList.length) {
-            mobileGallery.innerHTML = '<div style="padding:2rem;text-align:center;color:#c00;">Keine GIFs gefunden.</div>';
-            return;
-        }
-        const container = document.createElement('div');
-        container.className = 'mobile-container';
-        const wrapper = document.createElement('div');
-        wrapper.className = 'mobile-gif-wrapper';
-        this.mobileGifs = [];
-        this.gifList.forEach((gif, idx) => {
-            const img = document.createElement('img');
-            img.className = 'mobile-gif' + (idx === 0 ? ' active' : '');
-            img.src = `assets/gifs/${gif}`;
-            img.alt = gif;
-            img.loading = 'lazy';
-            img.addEventListener('click', () => this.openModal(img.src));
-            wrapper.appendChild(img);
-            this.mobileGifs.push(img);
-        });
-        container.appendChild(wrapper);
-        // Controls
-        const controls = document.createElement('div');
-        controls.className = 'mobile-controls';
-        const prevBtn = document.createElement('button');
-        prevBtn.className = 'mobile-btn mobile-btn--prev';
-        prevBtn.textContent = '‹';
-        const nextBtn = document.createElement('button');
-        nextBtn.className = 'mobile-btn mobile-btn--next';
-        nextBtn.textContent = '›';
-        const indicators = document.createElement('div');
-        indicators.className = 'mobile-indicators';
-        this.mobileGifs.forEach((_, idx) => {
-            const indicator = document.createElement('span');
-            indicator.className = 'mobile-indicator' + (idx === 0 ? ' active' : '');
-            indicator.dataset.index = idx;
-            indicator.addEventListener('click', () => {
-                this.currentMobileIndex = idx;
-                this.updateMobileDisplay();
-            });
-            indicators.appendChild(indicator);
-        });
-        controls.appendChild(prevBtn);
-        controls.appendChild(indicators);
-        controls.appendChild(nextBtn);
-        container.appendChild(controls);
-        mobileGallery.appendChild(container);
-        // Touch/Swipe
-        this.setupTouchEvents(wrapper);
-        // Button navigation
-        prevBtn.addEventListener('click', () => this.navigateMobile('prev'));
-        nextBtn.addEventListener('click', () => this.navigateMobile('next'));
-        this.currentMobileIndex = 0;
-        this.updateMobileDisplay();
-    }
-
-    navigateMobile(direction) {
-        if (direction === 'next') {
-            this.currentMobileIndex = this.currentMobileIndex < this.mobileGifs.length - 1
-                ? this.currentMobileIndex + 1
-                : 0;
         } else {
-            this.currentMobileIndex = this.currentMobileIndex > 0
-                ? this.currentMobileIndex - 1
-                : this.mobileGifs.length - 1;
+            this.copyToClipboard(url);
         }
-        this.updateMobileDisplay();
     }
 
-    updateMobileDisplay() {
-        this.mobileGifs.forEach((gif, idx) => {
-            gif.classList.toggle('active', idx === this.currentMobileIndex);
-        });
-        const indicators = document.querySelectorAll('.mobile-indicator');
-        indicators.forEach((indicator, idx) => {
-            indicator.classList.toggle('active', idx === this.currentMobileIndex);
-        });
+    async copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            this.showNotification('📋 Link copied to clipboard!', 'success');
+        } catch (error) {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            this.showNotification('📋 Link copied to clipboard!', 'success');
+        }
     }
 
-    // ===== TOUCH EVENTS =====
-    setupTouchEvents(element) {
-        element.addEventListener('touchstart', (e) => {
-            this.touchStartX = e.changedTouches[0].screenX;
-        }, { passive: true });
-        element.addEventListener('touchend', (e) => {
-            this.touchEndX = e.changedTouches[0].screenX;
-            this.handleSwipe();
-        }, { passive: true });
-        element.addEventListener('dragstart', (e) => {
-            e.preventDefault();
-        });
-    }
-    handleSwipe() {
-        const swipeThreshold = 50;
-        const diff = this.touchStartX - this.touchEndX;
-        if (Math.abs(diff) > swipeThreshold) {
-            if (diff > 0) {
-                this.navigateMobile('next');
-            } else {
-                this.navigateMobile('prev');
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification--${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: ${type === 'success' ? 'linear-gradient(45deg, #4ade80, #22c55e)' :
+                          type === 'error' ? 'linear-gradient(45deg, #ef4444, #dc2626)' :
+                          'linear-gradient(45deg, #3b82f6, #2563eb)'};
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 1001;
+            animation: slideInRight 0.3s ease, slideOutRight 0.3s ease 2.7s forwards;
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
             }
-        }
+        }, 3000);
     }
 
-    // ===== MODAL FUNCTIONALITY =====
     setupModal() {
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes slideOutRight {
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
         const modal = document.getElementById('fullscreen-modal');
         const closeBtn = document.querySelector('.modal__close');
+
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
                 this.closeModal();
             });
         }
+
         if (modal) {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
@@ -250,29 +279,33 @@ class GifGallery {
                 }
             });
         }
+
         document.addEventListener('keydown', (e) => {
             if (modal && modal.classList.contains('active')) {
                 if (e.key === 'Escape') {
                     this.closeModal();
                 } else if (e.key === 'ArrowLeft') {
-                    this.navigateMobile('prev');
-                    this.updateModalImage();
+                    this.navigateModal(-1);
                 } else if (e.key === 'ArrowRight') {
-                    this.navigateMobile('next');
-                    this.updateModalImage();
+                    this.navigateModal(1);
                 }
             }
         });
     }
-    openModal(imageSrc) {
+
+    openModal(index) {
+        this.currentModalIndex = index;
         const modal = document.getElementById('fullscreen-modal');
         const modalImage = document.querySelector('.modal__image');
+
         if (modal && modalImage) {
-            modalImage.src = imageSrc;
+            modalImage.src = this.gifs[index].url;
+            modalImage.alt = this.gifs[index].title || 'GIF Animation';
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
     }
+
     closeModal() {
         const modal = document.getElementById('fullscreen-modal');
         if (modal) {
@@ -280,69 +313,84 @@ class GifGallery {
             document.body.style.overflow = '';
         }
     }
-    updateModalImage() {
-        const modalImage = document.querySelector('.modal__image');
-        const activeMobileGif = this.mobileGifs[this.currentMobileIndex];
-        if (modalImage && activeMobileGif) {
-            modalImage.src = activeMobileGif.src;
+
+    navigateModal(direction) {
+        const newIndex = this.currentModalIndex + direction;
+
+        if (newIndex >= 0 && newIndex < this.gifs.length) {
+            this.currentModalIndex = newIndex;
+            const modalImage = document.querySelector('.modal__image');
+            if (modalImage) {
+                modalImage.style.opacity = '0';
+                setTimeout(() => {
+                    modalImage.src = this.gifs[this.currentModalIndex].url;
+                    modalImage.alt = this.gifs[this.currentModalIndex].title || 'GIF Animation';
+                    modalImage.style.opacity = '1';
+                }, 150);
+            }
         }
     }
 
-    // ===== RESPONSIVE HANDLING =====
     setupEventListeners() {
         window.addEventListener('resize', () => {
-            const wasMobile = this.isMobile;
-            this.isMobile = window.innerWidth <= 768;
-            if (wasMobile !== this.isMobile) {
+            // Recalculate masonry layout on resize
+            this.debounce(() => {
                 this.renderGallery();
+            }, 250)();
+        });
+
+        // Add smooth scrolling for better UX
+        document.addEventListener('scroll', () => {
+            const header = document.querySelector('.header');
+            if (window.scrollY > 50) {
+                header.style.background = 'rgba(255, 255, 255, 0.15)';
+            } else {
+                header.style.background = 'rgba(255, 255, 255, 0.1)';
             }
         });
     }
-    handleResize() {
-        // Initial Layout
-        this.isMobile = window.innerWidth <= 768;
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Public method to add new GIFs dynamically
+    addGif(url, title, size = 'medium') {
+        this.gifs.push({ url, title, size });
         this.renderGallery();
+    }
+
+    // Public method to remove GIF
+    removeGif(index) {
+        if (index >= 0 && index < this.gifs.length) {
+            this.gifs.splice(index, 1);
+            this.renderGallery();
+        }
     }
 }
 
 // ===== INITIALIZE GALLERY =====
 document.addEventListener('DOMContentLoaded', () => {
-    new GifGallery();
+    window.gifGallery = new PinterestGifGallery();
 });
 
-// ===== CONFIGURATION OBJECT =====
-// This can be used to easily modify GIF sources
-const GIF_CONFIG = {
-    desktop: [
-        {
-            cell: 0,
-            gifs: [
-                { src: 'assets/gifs/gif1.gif', alt: 'GIF 1' },
-                { src: 'assets/gifs/gif2.gif', alt: 'GIF 2' }
-            ]
-        },
-        {
-            cell: 1,
-            gifs: [
-                { src: 'assets/gifs/gif3.gif', alt: 'GIF 3' },
-                { src: 'assets/gifs/gif4.gif', alt: 'GIF 4' },
-                { src: 'assets/gifs/gif5.gif', alt: 'GIF 5' }
-            ]
-        }
-        // Add more cells as needed
-    ],
-    mobile: [
-        { src: 'assets/gifs/mobile1.gif', alt: 'Mobile GIF 1' },
-        { src: 'assets/gifs/mobile2.gif', alt: 'Mobile GIF 2' },
-        { src: 'assets/gifs/mobile3.gif', alt: 'Mobile GIF 3' },
-        { src: 'assets/gifs/mobile4.gif', alt: 'Mobile GIF 4' },
-        { src: 'assets/gifs/mobile5.gif', alt: 'Mobile GIF 5' }
-    ]
-};
+// ===== UTILITY FUNCTIONS =====
+function addNewGif(url, title, size) {
+    if (window.gifGallery) {
+        window.gifGallery.addGif(url, title, size);
+    }
+}
 
-// Function to update GIFs from config (for future use)
-function updateGifsFromConfig() {
-    // This function can be implemented to dynamically load GIFs from the config
-    // Useful for when you want to load GIFs from a JSON file or API
-    console.log('GIF config:', GIF_CONFIG);
+function removeGif(index) {
+    if (window.gifGallery) {
+        window.gifGallery.removeGif(index);
+    }
 }

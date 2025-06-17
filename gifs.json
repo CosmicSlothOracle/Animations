@@ -1,6 +1,14 @@
 [
-  "milch sepia.gif",
-  "antrieb.gif",
+  {
+    "url": "https://i.postimg.cc/zvr9fzPH/zoomin.gif",
+    "title": "Zoom In Animation",
+    "size": "large"
+  },
+  {
+    "url": "https://i.postimg.cc/RFHWBRjV/antrieb.gif",
+    "title": "Antrieb Animation",
+    "size": "medium"
+  },
   "output-onlinegiftools (34).gif",
   "output-onlinegiftools (4).gif",
   "dancel3.gif",
