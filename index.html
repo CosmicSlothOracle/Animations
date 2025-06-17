@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIF Gallery</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <h1 class="header__title">GIF Gallery</h1>
+    </header>
+
+    <main class="main">
+        <!-- Das Grid wird dynamisch per JavaScript befüllt -->
+        <div class="gif-grid" id="gif-grid"></div>
+        <div class="mobile-gallery" id="mobile-gallery"></div>
+        <noscript>
+            <div style="padding:2rem;text-align:center;color:#c00;">Bitte aktivieren Sie JavaScript, um die GIF-Galerie zu sehen.</div>
+        </noscript>
+    </main>
+
+    <!-- Fullscreen Modal for Mobile -->
+    <div class="modal" id="fullscreen-modal">
+        <div class="modal__overlay">
+            <button class="modal__close">&times;</button>
+            <img class="modal__image" src="" alt="">
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
